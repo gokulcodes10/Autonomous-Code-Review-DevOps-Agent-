@@ -1,0 +1,10 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+langchain-groq>=0.2.0
+langchain-core>=0.3.0
+groq>=0.11.0
+radon>=6.0.1
+bandit>=1.7.9
+pip-audit>=2.7.0
+PyGithub>=2.4.0
+python-dotenv>=1.0.0

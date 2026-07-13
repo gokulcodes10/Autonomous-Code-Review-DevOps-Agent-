@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRDO · Code Review Agent</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-soft: #111722;
+    --panel: #131a26;
+    --panel-2: #0d131d;
+    --border: #1e2733;
+    --border-soft: #19212d;
+    --text: #d7dee8;
+    --text-dim: #7d8a9c;
+    --text-faint: #4a5568;
+    --accent: #4d8dff;
+    --accent-soft: #1a2a4a;
+    --green: #3fb950;
+    --yellow: #d6a52a;
+    --orange: #f0883e;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.25);
+  }
+
+  * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #14223d33, transparent),
+      radial-gradient(900px 500px at 100% 0%, #1a2b1e22, transparent),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, textarea, .mono { font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace; }
+
+  /* ---------- Header ---------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(12px);
+    background: rgba(10, 14, 20, 0.8);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #4d8dff, #6f5cff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; color: #fff;
+    box-shadow: 0 4px 14px rgba(77,141,255,0.35);
+  }
+
+  header h1 { font-size: 16px; font-weight: 700; color: #f3f6fb; letter-spacing: -0.01em; }
+  header .sub { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+  header .tag {
+    margin-left: auto;
+    font-size: 11px; font-weight: 600;
+    background: var(--accent-soft); color: var(--blue);
+    padding: 4px 10px; border-radius: 20px;
+    border: 1px solid #25406e;
+  }
+
+  /* ---------- Layout ---------- */
+  .container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+  }
+
+  @media (max-width: 980px) {
+    .container { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .panel + .panel { margin-top: 18px; }
+
+  .panel-header {
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 12px; font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .panel-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .panel-body { padding: 18px; }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  select, input[type="text"] {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  select { cursor: pointer; min-width: 150px; }
+  select:focus, input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(77,141,255,0.15);
+  }
+  .field.grow { flex: 1; min-width: 160px; }
+  .field.grow input { width: 100%; }
+
+  /* ---------- Dropzone ---------- */
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all .15s;
+    margin-bottom: 14px;
+    background: var(--panel-2);
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent);
+    background: rgba(77,141,255,0.06);
+    color: var(--text);
+  }
+  .dropzone strong { color: var(--blue); }
+  .dropzone .exts { display: block; margin-top: 4px; font-size: 11px; color: var(--text-faint); }
+
+  .editor-wrap { position: relative; }
+  .editor-meta {
+    position: absolute; top: 8px; right: 12px;
+    font-size: 11px; color: var(--text-faint);
+    background: rgba(13,19,29,0.85);
+    padding: 2px 8px; border-radius: 6px;
+    pointer-events: none;
+  }
+
+  textarea {
+    width: 100%;
+    height: 360px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    tab-size: 4;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(77,141,255,0.12); }
+  textarea::placeholder { color: var(--text-faint); }
+
+  .action-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+
+  button {
+    background: linear-gradient(180deg, #4d8dff, #3a72e0);
+    color: #fff; border: none; border-radius: 8px;
+    padding: 11px 24px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: filter .15s, transform .05s;
+    display: inline-flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 14px rgba(58,114,224,0.3);
+  }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: translateY(1px); }
+  button:disabled { background: #1c2533; color: var(--text-faint); cursor: not-allowed; box-shadow: none; }
+
+  .hint { font-size: 12px; color: var(--text-faint); }
+  kbd {
+    background: var(--bg-soft); border: 1px solid var(--border);
+    border-bottom-width: 2px; border-radius: 4px;
+    padding: 1px 6px; font-size: 11px; color: var(--text-dim);
+  }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.25);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    background: rgba(248,81,73,0.08);
+    border: 1px solid #5c2321;
+    border-radius: 8px;
+    padding: 11px 14px; color: #ff7b72;
+    font-size: 13px; margin-top: 14px; display: none;
+  }
+
+  /* ---------- Results ---------- */
+  .results-panel { display: none; }
+  .results-panel.visible { display: block; animation: fade .3s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--text-faint);
+  }
+  .empty-state .icon { font-size: 40px; opacity: 0.4; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  .score-row { display: flex; align-items: center; gap: 22px; }
+
+  .score-ring {
+    --pct: 0;
+    width: 92px; height: 92px; border-radius: 50%;
+    flex-shrink: 0; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    background: conic-gradient(var(--ring-color) calc(var(--pct) * 1%), #1a2230 0);
+  }
+  .score-ring::before {
+    content: ""; position: absolute; inset: 7px;
+    border-radius: 50%; background: var(--panel-2);
+  }
+  .score-ring .inner { position: relative; text-align: center; }
+  .score-ring .num { font-size: 24px; font-weight: 800; line-height: 1; }
+  .score-ring .grade { font-size: 10px; color: var(--text-dim); margin-top: 3px; letter-spacing: 0.05em; }
+
+  .ring-A, .ring-B { --ring-color: var(--green); }
+  .ring-C { --ring-color: var(--yellow); }
+  .ring-D, .ring-F { --ring-color: var(--red); }
+  .ring-A .num, .ring-B .num { color: var(--green); }
+  .ring-C .num { color: var(--yellow); }
+  .ring-D .num, .ring-F .num { color: var(--red); }
+
+  .verdict-block { flex: 1; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 6px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+    margin-bottom: 9px;
+  }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge-PASS { background: rgba(63,185,80,0.12); color: var(--green); border: 1px solid #1f6f33; }
+  .badge-WARN { background: rgba(214,165,42,0.12); color: var(--yellow); border: 1px solid #7a5a12; }
+  .badge-BLOCK { background: rgba(248,81,73,0.12); color: var(--red); border: 1px solid #7d2620; }
+
+  .summary-text { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .lang-pill {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    color: var(--blue); background: var(--accent-soft);
+    border: 1px solid #25406e; padding: 2px 9px; border-radius: 20px;
+    margin-bottom: 8px;
+  }
+
+  .gates-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .gates-table td { padding: 10px 16px; border-bottom: 1px solid var(--border-soft); }
+  .gates-table tr:last-child td { border-bottom: none; }
+  .gates-table tr:hover td { background: rgba(255,255,255,0.015); }
+  .gate-name { font-weight: 500; color: var(--text); }
+  .gate-status { font-weight: 700; font-size: 11px; text-align: center; width: 70px; }
+  .gate-msg { color: var(--text-dim); font-size: 12px; }
+  .gate-status.s-PASS, .status-PASS { color: var(--green); }
+  .gate-status.s-WARN, .status-WARN { color: var(--yellow); }
+  .gate-status.s-BLOCK, .status-BLOCK { color: var(--red); }
+
+  .counts-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .count-chip {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .count-chip .n { font-weight: 800; }
+  .chip-CRITICAL { background: rgba(248,81,73,0.12); color: var(--red); }
+  .chip-HIGH { background: rgba(240,136,62,0.12); color: var(--orange); }
+  .chip-MEDIUM { background: rgba(214,165,42,0.12); color: var(--yellow); }
+  .chip-LOW { background: rgba(63,185,80,0.12); color: var(--green); }
+
+  .findings-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .finding-item {
+    background: var(--panel-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 9px; padding: 14px;
+    border-left: 3px solid;
+    transition: border-color .15s;
+  }
+  .finding-item:hover { border-color: var(--border); }
+  .finding-item.sev-CRITICAL { border-left-color: var(--red); }
+  .finding-item.sev-HIGH { border-left-color: var(--orange); }
+  .finding-item.sev-MEDIUM { border-left-color: var(--yellow); }
+  .finding-item.sev-LOW { border-left-color: var(--green); }
+  .finding-item.sev-INFO { border-left-color: var(--blue); }
+
+  .finding-title {
+    font-size: 13.5px; font-weight: 600; color: #f0f6fc;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 9px;
+  }
+  .finding-sev { font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.05em; }
+  .lab-CRITICAL { background: var(--red); color: #0a0e14; }
+  .lab-HIGH { background: var(--orange); color: #0a0e14; }
+  .lab-MEDIUM { background: var(--yellow); color: #0a0e14; }
+  .lab-LOW { background: var(--green); color: #0a0e14; }
+  .lab-INFO { background: var(--blue); color: #0a0e14; }
+
+  .finding-desc { font-size: 12.5px; color: var(--text-dim); margin-bottom: 7px; line-height: 1.55; }
+  .finding-suggestion { font-size: 12.5px; color: var(--blue); margin-top: 5px; line-height: 1.5; }
+  .finding-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--text-faint); margin-top: 8px; }
+  .finding-meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+  .fix-code {
+    background: #0a0f17; border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px;
+    font-size: 12px; color: #7ee787; margin-top: 9px;
+    white-space: pre-wrap; overflow-x: auto; line-height: 1.5;
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    background: var(--panel-2); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600;
+    box-shadow: none; cursor: pointer;
+  }
+  .tab.active { background: var(--accent-soft); color: var(--blue); border-color: #25406e; }
+  .tab:hover { filter: none; color: var(--text); }
+
+  .check {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-dim); cursor: pointer;
+    margin-bottom: 4px;
+  }
+  .check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+  .mini-btn {
+    margin-left: auto; background: var(--accent-soft); color: var(--blue);
+    border: 1px solid #25406e; border-radius: 7px;
+    padding: 5px 12px; font-size: 11.5px; font-weight: 600;
+    box-shadow: none; text-transform: none; letter-spacing: 0;
+  }
+  .mini-btn:hover { filter: brightness(1.15); }
+
+  .pr-result { margin-top: 14px; }
+  .pr-summary {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; margin-bottom: 12px;
+  }
+  .pr-files { display: flex; flex-direction: column; gap: 7px; }
+  .pr-file-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel-2); border: 1px solid var(--border-soft);
+    border-radius: 7px; padding: 8px 12px; font-size: 12.5px;
+  }
+  .pr-file-row .fname { flex: 1; color: var(--text); }
+  .pr-file-row .grade { font-weight: 700; }
+  .posted-ok { color: var(--green); font-size: 12px; }
+  .posted-no { color: var(--yellow); font-size: 12px; }
+
+  .fix-result { margin-bottom: 14px; }
+  .fix-banner {
+    font-size: 12.5px; color: var(--green);
+    background: rgba(63,185,80,0.08); border: 1px solid #1f6f33;
+    border-radius: 7px; padding: 9px 12px; margin-bottom: 10px;
+  }
+  .fix-banner.none { color: var(--text-dim); background: var(--panel-2); border-color: var(--border-soft); }
+  .diff-block {
+    background: #0a0f17; border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px; margin-bottom: 8px;
+    font-size: 12px; overflow-x: auto; white-space: pre; line-height: 1.5;
+  }
+  .diff-block .add { color: #7ee787; }
+  .diff-block .del { color: #ff7b72; }
+  .diff-block .hunk { color: var(--blue); }
+  .diff-title { font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">D</div>
+  <div>
+    <h1>DRDO Code Review Agent</h1>
+    <div class="sub">Multi-language static &amp; AI-assisted analysis</div>
+  </div>
+  <div class="tag">Groq · LangChain</div>
+</header>
+
+<div class="container">
+  <!-- ---------- Input ---------- -->
+  <div>
+    <div class="tabs">
+      <button class="tab active" id="tab-code" onclick="switchTab('code')">Paste / Upload</button>
+      <button class="tab" id="tab-pr" onclick="switchTab('pr')">GitHub PR</button>
+    </div>
+
+    <!-- GitHub PR review -->
+    <div class="panel" id="prPanel" style="display:none">
+      <div class="panel-header"><span class="dot"></span> Review a Pull Request</div>
+      <div class="panel-body">
+        <div class="field grow" style="margin-bottom:14px">
+          <label for="prUrl">Pull Request URL</label>
+          <input type="text" id="prUrl" placeholder="https://github.com/owner/repo/pull/123">
+        </div>
+        <label class="check">
+          <input type="checkbox" id="postComment" checked>
+          Post the review as a PR comment
+        </label>
+        <div class="action-row">
+          <button id="prBtn" onclick="submitPrReview()"><span id="prBtnLabel">Review PR</span></button>
+          <span class="hint">Fetches changed source files, reviews each, and comments back.</span>
+        </div>
+        <div class="error-msg" id="prError"></div>
+        <div id="prResult" class="pr-result"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="codePanel">
+      <div class="panel-header"><span class="dot"></span> Code Input</div>
+      <div class="panel-body">
+
+        <div class="controls">
+          <div class="field">
+            <label for="language">Language</label>
+            <select id="language" onchange="onLanguageChange()">
+              <option value="python">Python (.py)</option>
+              <option value="c">C (.c / .h)</option>
+              <option value="cpp">C++ (.cpp / .hpp)</option>
+              <option value="rust">Rust (.rs)</option>
+              <option value="go">Go (.go)</option>
+              <option value="javascript">JavaScript (.js)</option>
+              <option value="typescript">TypeScript (.ts)</option>
+              <option value="java">Java (.java)</option>
+              <option value="csharp">C# (.cs)</option>
+              <option value="ruby">Ruby (.rb)</option>
+              <option value="php">PHP (.php)</option>
+              <option value="swift">Swift (.swift)</option>
+              <option value="kotlin">Kotlin (.kt)</option>
+            </select>
+          </div>
+          <div class="field grow">
+            <label for="filename">Filename</label>
+            <input type="text" id="filename" value="code.py" placeholder="filename.ext">
+          </div>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+          <strong>Click to upload</strong> or drag &amp; drop a source file
+          <span class="exts">.py .c .cpp .rs .go .js .ts .java .cs .rb .php .swift .kt</span>
+          <input type="file" id="fileInput" accept=".py,.c,.h,.cpp,.cxx,.cc,.hpp,.rs,.go,.js,.jsx,.ts,.tsx,.java,.cs,.rb,.php,.swift,.kt,.scala,.r,.lua,.sh" hidden>
+        </div>
+
+        <div class="editor-wrap">
+          <span class="editor-meta" id="editorMeta">0 lines</span>
+          <textarea id="codeInput" spellcheck="false" placeholder="Paste your code here, or upload a file above…"></textarea>
+        </div>
+
+        <div class="action-row">
+          <button id="reviewBtn" onclick="submitReview()">
+            <span id="btnLabel">Review Code</span>
+          </button>
+          <span class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Results ---------- -->
+  <div>
+    <div id="placeholder" class="panel">
+      <div class="panel-header"><span class="dot"></span> Analysis</div>
+      <div class="empty-state">
+        <div class="icon">⬡</div>
+        <p>Run a review to see security, quality &amp; performance findings.</p>
+      </div>
+    </div>
+
+    <div id="resultsPanel" class="results-panel">
+      <div class="panel">
+        <div class="panel-header"><span class="dot"></span> Summary</div>
+        <div class="panel-body">
+          <div class="score-row">
+            <div class="score-ring" id="scoreRing">
+              <div class="inner">
+                <div class="num" id="scoreNum">—</div>
+                <div class="grade" id="scoreGrade">—</div>
+              </div>
+            </div>
+            <div class="verdict-block">
+              <div class="lang-pill" id="langPill"></div>
+              <div id="decisionBadge"></div>
+              <div class="summary-text" id="summaryText"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="dot"></span> CI/CD Gates</div>
+        <div class="panel-body" style="padding:0">
+          <table class="gates-table" id="gatesTable"></table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="dot"></span> Findings
+          <button id="autofixBtn" class="mini-btn" onclick="applyAutoFixes()" style="display:none">⚡ Apply Auto-Fixes</button>
+        </div>
+        <div class="panel-body">
+          <div class="counts-row" id="countsRow"></div>
+          <div id="fixResult" class="fix-result"></div>
+          <div class="findings-list" id="findingsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const EXT_BY_LANG = {
+    python: 'py', c: 'c', cpp: 'cpp', rust: 'rs', go: 'go',
+    javascript: 'js', typescript: 'ts', java: 'java', csharp: 'cs',
+    ruby: 'rb', php: 'php', swift: 'swift', kotlin: 'kt'
+  };
+
+  const codeInput = document.getElementById('codeInput');
+  const filenameInput = document.getElementById('filename');
+  const langSelect = document.getElementById('language');
+
+  function updateMeta() {
+    const n = codeInput.value ? codeInput.value.split('\n').length : 0;
+    document.getElementById('editorMeta').textContent = `${n} line${n === 1 ? '' : 's'}`;
+  }
+  codeInput.addEventListener('input', updateMeta);
+
+  function onLanguageChange() {
+    const lang = langSelect.value;
+    const ext = EXT_BY_LANG[lang] || 'txt';
+    const cur = filenameInput.value;
+    const base = cur.includes('.') ? cur.slice(0, cur.lastIndexOf('.')) : (cur || 'code');
+    filenameInput.value = `${base}.${ext}`;
+  }
+
+  /* ---------- File upload ---------- */
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+  ['dragover', 'dragenter'].forEach(ev =>
+    dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev =>
+    dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', e => {
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  function handleFile(file) {
+    clearError();
+    const reader = new FileReader();
+    reader.onload = () => {
+      codeInput.value = reader.result;
+      updateMeta();
+      filenameInput.value = file.name;
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      detectAndSetLanguage(ext);
+    };
+    reader.onerror = () => showError('Could not read file.');
+    reader.readAsText(file);
+  }
+
+  function detectAndSetLanguage(ext) {
+    const map = {
+      '.py': 'python', '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.cxx': 'cpp',
+      '.cc': 'cpp', '.hpp': 'cpp', '.rs': 'rust', '.go': 'go',
+      '.js': 'javascript', '.jsx': 'javascript', '.ts': 'typescript', '.tsx': 'typescript',
+      '.java': 'java', '.cs': 'csharp', '.rb': 'ruby', '.php': 'php',
+      '.swift': 'swift', '.kt': 'kotlin'
+    };
+    const lang = map[ext];
+    if (lang && [...langSelect.options].some(o => o.value === lang)) langSelect.value = lang;
+  }
+
+  /* ---------- Review ---------- */
+  async function submitReview() {
+    const code = codeInput.value.trim();
+    const filename = filenameInput.value.trim() || 'code.py';
+    const language = langSelect.value;
+
+    if (!code) { showError('Please paste or upload some code to review.'); return; }
+
+    setLoading(true);
+    clearError();
+
+    try {
+      const res = await fetch('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, filename, language }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'An error occurred.'); return; }
+      renderResults(data);
+    } catch (e) {
+      showError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  let lastReview = null;
+
+  function renderResults(data) {
+    lastReview = data;
+    document.getElementById('fixResult').innerHTML = '';
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('resultsPanel').classList.add('visible');
+
+    const fixable = (data.findings || []).filter(f => f.auto_fixable && f.fix_code && f.code_snippet).length;
+    const autofixBtn = document.getElementById('autofixBtn');
+    autofixBtn.style.display = fixable ? 'inline-flex' : 'none';
+    autofixBtn.textContent = `⚡ Apply ${fixable} Auto-Fix${fixable === 1 ? '' : 'es'}`;
+
+    const { score, grade } = data.health_score;
+    const ring = document.getElementById('scoreRing');
+    ring.className = `score-ring ring-${grade}`;
+    ring.style.setProperty('--pct', score);
+    document.getElementById('scoreNum').textContent = score;
+    document.getElementById('scoreGrade').textContent = `Grade ${grade}`;
+
+    document.getElementById('langPill').textContent = (data.language || 'python').toUpperCase();
+
+    const decision = data.pipeline.decision;
+    document.getElementById('decisionBadge').innerHTML =
+      `<span class="badge badge-${decision}">${decision}</span>`;
+    document.getElementById('summaryText').textContent =
+      data.arbitration.overall_summary || data.pipeline.message;
+
+    document.getElementById('gatesTable').innerHTML = data.pipeline.gates.map(g => `
+      <tr>
+        <td class="gate-name">${escHtml(g.name)}</td>
+        <td class="gate-status s-${g.status}">${g.status}</td>
+        <td class="gate-msg">${escHtml(g.message)}</td>
+      </tr>`).join('');
+
+    const counts = data.counts;
+    document.getElementById('countsRow').innerHTML = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+      .filter(s => counts[s] > 0)
+      .map(s => `<span class="count-chip chip-${s}"><span class="n">${counts[s]}</span> ${s}</span>`)
+      .join('') || '<span style="color:var(--text-faint);font-size:13px">No issues found</span>';
+
+    const ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
+    const findings = [...data.findings].sort((a, b) => (ORDER[a.severity] ?? 5) - (ORDER[b.severity] ?? 5));
+
+    const list = document.getElementById('findingsList');
+    if (!findings.length) {
+      list.innerHTML = '<div style="color:var(--green);font-size:13px;padding:8px 0">✓ No findings — code looks clean.</div>';
+    } else {
+      list.innerHTML = findings.map(f => `
+        <div class="finding-item sev-${f.severity}">
+          <div class="finding-title">
+            <span class="finding-sev lab-${f.severity}">${f.severity}</span>
+            ${escHtml(f.title)}
+          </div>
+          <div class="finding-desc">${escHtml(f.description)}</div>
+          ${f.suggestion ? `<div class="finding-suggestion">→ ${escHtml(f.suggestion)}</div>` : ''}
+          <div class="finding-meta">
+            <span>◆ ${escHtml(f.agent)}</span>
+            ${f.line_number ? `<span>Line ${f.line_number}</span>` : ''}
+            ${f.cwe_id ? `<span>${escHtml(f.cwe_id)}</span>` : ''}
+            <span>${Math.round(f.confidence * 100)}% confidence</span>
+          </div>
+          ${f.fix_code ? `<div class="fix-code">${escHtml(f.fix_code)}</div>` : ''}
+        </div>`).join('');
+    }
+  }
+
+  function escHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function setLoading(on) {
+    document.getElementById('reviewBtn').disabled = on;
+    document.getElementById('btnLabel').innerHTML = on
+      ? '<span class="spinner"></span> Analyzing…'
+      : 'Review Code';
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function clearError() { document.getElementById('errorMsg').style.display = 'none'; }
+
+  codeInput.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitReview();
+  });
+
+  /* ---------- Tabs ---------- */
+  function switchTab(which) {
+    const isPr = which === 'pr';
+    document.getElementById('codePanel').style.display = isPr ? 'none' : 'block';
+    document.getElementById('prPanel').style.display = isPr ? 'block' : 'none';
+    document.getElementById('tab-code').classList.toggle('active', !isPr);
+    document.getElementById('tab-pr').classList.toggle('active', isPr);
+  }
+
+  /* ---------- Auto-fix ---------- */
+  async function applyAutoFixes() {
+    if (!lastReview) return;
+    const btn = document.getElementById('autofixBtn');
+    btn.disabled = true;
+    btn.textContent = 'Applying…';
+    try {
+      const res = await fetch('/api/autofix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: codeInput.value,
+          filename: lastReview.filename,
+          language: lastReview.language,
+          findings: lastReview.findings,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Auto-fix failed.'); return; }
+      renderFixes(data);
+      if (data.changed) {
+        codeInput.value = data.patched_code;
+        updateMeta();
+      }
+    } catch (e) {
+      showError('Network error during auto-fix.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderFixes(data) {
+    const el = document.getElementById('fixResult');
+    document.getElementById('autofixBtn').style.display = 'none';
+    if (!data.num_applied) {
+      el.innerHTML = `<div class="fix-banner none">No fixes could be safely applied${data.num_failed ? ` (${data.num_failed} skipped)` : ''}.</div>`;
+      return;
+    }
+    let html = `<div class="fix-banner">✓ Applied ${data.num_applied} fix${data.num_applied === 1 ? '' : 'es'} to the editor${data.num_failed ? ` · ${data.num_failed} skipped` : ''}.</div>`;
+    html += data.applied.map(f => `
+      <div class="diff-title">${escHtml(f.title)}</div>
+      <div class="diff-block">${renderDiff(f.diff)}</div>
+    `).join('');
+    el.innerHTML = html;
+  }
+
+  function renderDiff(diff) {
+    return escHtml(diff).split('\n').map(line => {
+      if (line.startsWith('+') && !line.startsWith('+++')) return `<span class="add">${line}</span>`;
+      if (line.startsWith('-') && !line.startsWith('---')) return `<span class="del">${line}</span>`;
+      if (line.startsWith('@@')) return `<span class="hunk">${line}</span>`;
+      return line;
+    }).join('\n');
+  }
+
+  /* ---------- PR review ---------- */
+  async function submitPrReview() {
+    const prUrl = document.getElementById('prUrl').value.trim();
+    const postComment = document.getElementById('postComment').checked;
+    if (!prUrl) { showPrError('Please enter a pull request URL.'); return; }
+
+    const btn = document.getElementById('prBtn');
+    btn.disabled = true;
+    document.getElementById('prBtnLabel').innerHTML = '<span class="spinner"></span> Reviewing…';
+    clearPrError();
+    document.getElementById('prResult').innerHTML = '';
+
+    try {
+      const res = await fetch('/api/review-pr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pr_url: prUrl, post_comment: postComment }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showPrError(data.error || 'PR review failed.'); return; }
+      renderPrResult(data);
+    } catch (e) {
+      showPrError('Network error. Please try again.');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('prBtnLabel').textContent = 'Review PR';
+    }
+  }
+
+  function renderPrResult(data) {
+    const el = document.getElementById('prResult');
+    const posted = data.comment_posted
+      ? '<span class="posted-ok">✓ comment posted</span>'
+      : `<span class="posted-no">comment not posted${data.post_error ? ': ' + escHtml(data.post_error) : ''}</span>`;
+    let html = `<div class="pr-summary">
+      <span class="badge badge-${data.overall_decision}">${data.overall_decision}</span>
+      <span style="color:var(--text-dim)">${data.files_reviewed} file(s) reviewed</span>
+      ${posted}
+    </div><div class="pr-files">`;
+    html += data.reviews.map(r => {
+      const g = r.health_score.grade;
+      const gc = (g === 'A' || g === 'B') ? 'var(--green)' : g === 'C' ? 'var(--yellow)' : 'var(--red)';
+      return `<div class="pr-file-row">
+        <span class="fname mono">${escHtml(r.filename)}</span>
+        <span class="status-${r.pipeline.decision}">${r.pipeline.decision}</span>
+        <span class="grade" style="color:${gc}">${g} · ${r.health_score.score}</span>
+      </div>`;
+    }).join('');
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function showPrError(msg) {
+    const el = document.getElementById('prError');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function clearPrError() { document.getElementById('prError').style.display = 'none'; }
+
+  updateMeta();
+</script>
+</body>
+</html>

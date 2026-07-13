@@ -1,6 +1,6 @@
 # CI/CD Code Review Agent
 
-A code review tool that reads a file (or a whole GitHub pull request) and tells you whether it's safe to merge. It runs the usual static analyzers, scans for hardcoded secrets, then hands the code to a small panel of LLM agents that argue about it before a "critic" agent settles the final verdict. The result is a PASS / WARN / BLOCK decision plus a health grade, the same way a CI gate would behave.
+A code review tool that reads a file (or a whole GitHub pull request) and tells you whether it's safe to merge. It runs the usual static analyzers, scans for hardcoded secrets, then hands the code to a small panel of LLM agents that argue about it before a "critic" agent settles the final verdict. The result is a PASS / WARN / BLOCK decision plus a health grade, the same way a CI gate would behave. It can be accessed live at https://cicdagent-f76t.vercel.app/.
 
 It ships as a single Flask app with a dark web UI, and it's set up to deploy to Vercel as a serverless function.
 
